@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+/*
+  The playground stands in for a host application, so it does what a host does:
+  it defines its own `--font-sans`. That exercises the real precedence chain —
+  `var(--font-sans, "Geist", …)` — rather than only the fallback branch.
+*/
+@theme {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+html {
+  font-family: var(--font-sans);
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}

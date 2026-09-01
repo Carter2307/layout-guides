@@ -1,0 +1,291 @@
+/*
+ * Library stylesheet.
+ *
+ * Two deliberate departures from a normal Tailwind entrypoint, because this CSS
+ * is shipped inside a package and loaded into somebody else's page:
+ *
+ * 1. Preflight is NOT imported. Tailwind's reset targets `*`, `button`, `input`…
+ *    globally; shipping it would restyle the host application. A scoped reset
+ *    under `.layout-guide` replaces it below.
+ *
+ * 2. The default theme is imported with `theme(reference)`, so Tailwind inlines
+ *    values into utilities instead of emitting hundreds of custom properties on
+ *    `:root`. That keeps the host's `:root` clean and — crucially — leaves
+ *    `--font-sans` undefined unless the host defines it, which is what makes the
+ *    font fallback chain below behave as intended.
+ */
+
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme) theme(reference);
+/*
+ * Utilities are emitted nested under `.layout-guide` rather than at the top
+ * level. Without this the library's plain `.bg-white` would land in the same
+ * cascade layer as the host's `.dark\:bg-zinc-950`, at equal specificity, and
+ * whichever stylesheet loaded last would win — a demonstrated way to repaint
+ * the host page.
+ */
+@layer utilities {
+  .layout-guide {
+    @tailwind utilities;
+  }
+}
+@import "tw-animate-css";
+/*
+ * The `data-*` variants the base-luma components rely on, copied from
+ * `shadcn/tailwind.css` rather than imported: that file also emits a global
+ * `.shimmer` rule and a set of `@property` registrations for utilities this
+ * package never uses, and a library has no business shipping either.
+ */
+/* Custom variants */
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-checked {
+  &:where([data-state="checked"]),
+  &:where([data-checked]:not([data-checked="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-unchecked {
+  &:where([data-state="unchecked"]),
+  &:where([data-unchecked]:not([data-unchecked="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-selected {
+  &:where([data-selected="true"]) {
+    @slot;
+  }
+}
+
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]),
+  &:where([data-disabled]:not([data-disabled="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-active {
+  &:where([data-state="active"]),
+  &:where([data-active]:not([data-active="false"])) {
+    @slot;
+  }
+}
+
+@custom-variant data-horizontal {
+  &:where([data-orientation="horizontal"]) {
+    @slot;
+  }
+}
+
+@custom-variant data-vertical {
+  &:where([data-orientation="vertical"]) {
+    @slot;
+  }
+}
+
+@source "../";
+/* The playground is dev-only: its utilities must not ship in the library CSS. */
+@source not "../dev";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Design tokens live on the container, not on `:root`.
+ *
+ * Scoping them this way means the host's tokens and ours never collide, and any
+ * broad host rule that resolves a shadcn variable (e.g. `* { border-color:
+ * var(--border) }`) picks up *our* value inside the panel instead of fighting it.
+ */
+.layout-guide {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.625rem;
+
+  /*
+   * The host's font when it defines `--font-sans` (Next's `next/font` does),
+   * Geist when it is available, then the system stack. No font binary is
+   * shipped with this package.
+   */
+  font-family: var(
+    --font-sans,
+    "Geist",
+    "Geist Variable",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif
+  );
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark .layout-guide,
+.layout-guide.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+}
+
+/*
+ * Scoped stand-in for Tailwind preflight. Lives in `@layer base` so utilities,
+ * which come later in the cascade, still win despite equal specificity.
+ */
+@layer base {
+  .layout-guide,
+  .layout-guide *,
+  .layout-guide *::before,
+  .layout-guide *::after {
+    box-sizing: border-box;
+    border: 0 solid var(--border);
+    margin: 0;
+    padding: 0;
+    outline-color: var(--ring);
+  }
+
+  /*
+   * The root's own box is declared here, not with utility classes: utilities
+   * are nested under `.layout-guide`, so they reach its descendants only.
+   *
+   * It spans the viewport to give the whole tool a single stacking context —
+   * the overlay, the panel and the portalled popups then order themselves with
+   * small z-indexes — while letting clicks through to the host page.
+   */
+  .layout-guide {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: start;
+    letter-spacing: normal;
+    text-transform: none;
+    font-style: normal;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .layout-guide button,
+  .layout-guide input,
+  .layout-guide select,
+  .layout-guide textarea {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background-color: transparent;
+    border-radius: 0;
+    appearance: none;
+  }
+
+  .layout-guide button:not(:disabled),
+  .layout-guide [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  .layout-guide input::placeholder,
+  .layout-guide textarea::placeholder {
+    color: var(--muted-foreground);
+    opacity: 1;
+  }
+
+  .layout-guide input[type="number"]::-webkit-inner-spin-button,
+  .layout-guide input[type="number"]::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+
+  .layout-guide svg {
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .layout-guide ul,
+  .layout-guide ol {
+    list-style: none;
+  }
+
+  /*
+   * The root lets clicks through to the host page, but everything it holds is
+   * interactive — including the popups Base UI portals in as direct children,
+   * which cannot be given a class from here. The overlay opts back out with its
+   * own `pointer-events-none` utility, which wins on layer order alone.
+   */
+  .layout-guide > * {
+    pointer-events: auto;
+  }
+}
