@@ -1,5 +1,7 @@
 # layout-guide
 
+[![npm](https://img.shields.io/npm/v/layout-guide)](https://www.npmjs.com/package/layout-guide)
+
 Draw a grid, columns or rows over any React page and adjust them from a floating
 panel — Figma's _Layout guide_, in the browser.
 
@@ -150,8 +152,35 @@ on the tool's root instead of `:root`.
 ```sh
 pnpm dev        # playground on http://localhost:5173
 pnpm build      # dist/index.js + dist/index.css + types
+pnpm lint
 pnpm typecheck
+pnpm format
 ```
 
-Consumers in this repository depend on `dist`, so the package is built before the
-application runs — `pnpm dev` and `pnpm build` at the root do it for you.
+The playground under `src/dev` imports the library from source, so `pnpm dev`
+reflects a change without a build step.
+
+## Releasing
+
+Publishing is automated. A push to `main` carrying a `package.json` version that
+is not yet on npm builds the package, publishes it, then creates the matching tag
+and GitHub Release. A push that leaves the version alone does nothing.
+
+```sh
+npm version patch --no-git-tag-version   # or minor / major
+git commit -am "chore: release 0.2.1"
+git push
+```
+
+The workflow authenticates through npm [trusted publishing][trusted-publishing],
+so no token is stored in the repository. That configuration is bound to the
+`release.yml` filename — renaming the file silently breaks publishing.
+
+Versions are permanent: npm never lets a version number be reused, even after an
+unpublish.
+
+[trusted-publishing]: https://docs.npmjs.com/trusted-publishers/
+
+## License
+
+MIT
