@@ -1,26 +1,57 @@
 name: Release
 
-# Publier une Release GitHub (tag `v0.2.0`) suffit : la version du tag devient
-# celle du paquet, et npm reçoit le build.
+# Un push sur main suffit. La version de package.json fait autorité : si elle
+# n'est pas encore sur npm, la CI publie, tague et crée la Release GitHub.
+# Les pushes qui ne touchent pas à la version ne déclenchent rien.
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
 
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
-  publish:
+  check:
     runs-on: ubuntu-latest
-    permissions:
-      # `id-token` autorise l'échange OIDC contre un jeton npm éphémère,
-      # `contents` le commit de la version sur main.
-      contents: write
-      id-token: write
-
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      changed: ${{ steps.version.outputs.changed }}
     steps:
       - uses: actions/checkout@v5
+
+      # On interroge npm plutôt que les tags git : c'est le registre qui
+      # tranche, et ça reste correct quelle que soit la façon dont tu as
+      # bumpé la version en local.
+      - name: La version est-elle déjà sur npm ?
+        id: version
+        run: |
+          NAME="$(node -p "require('./package.json').name")"
+          VERSION="$(node -p "require('./package.json').version")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "$NAME@$VERSION est déjà publié — rien à faire."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Nouvelle version détectée : $NAME@$VERSION"
+          fi
+
+  release:
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      # `contents` pour créer le tag et la Release, `id-token` pour l'OIDC npm.
+      contents: write
+      id-token: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Historique complet : --generate-notes compare au tag précédent.
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -30,42 +61,23 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      # Trusted publishing n'existe qu'à partir de npm 11.5.1 ; Node 22 en
-      # embarque une plus ancienne.
+      # Trusted publishing n'existe qu'à partir de npm 11.5.1.
       - run: npm install --global npm@latest
 
       - run: pnpm install --frozen-lockfile
-
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm build
 
-      - name: Aligner package.json sur le tag
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          if [ -z "$VERSION" ]; then
-            echo "Tag de release vide." >&2
-            exit 1
-          fi
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-
+      # npm avant GitHub : c'est l'étape irréversible. Une Release ratée se
+      # recrée à la main, une version npm publiée ne se reprend jamais.
       - run: npm publish
 
-      # Sans ce commit, package.json resterait sur l'ancienne version dans le
-      # dépôt alors que npm sert la nouvelle. On repart de la pointe de main :
-      # le job tourne sur un HEAD détaché au commit tagué, qui n'est pas
-      # forcément la pointe, et un push direct serait rejeté.
-      - name: Reporter la version sur main
+      - name: Taguer et créer la Release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git checkout -B main origin/main
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
-          if git diff --quiet package.json; then
-            echo "main est déjà en ${VERSION}, rien à committer."
-            exit 0
-          fi
-          git commit -am "chore: release ${VERSION}"
-          git push origin main
+          gh release create "v${VERSION}" \
+            --target "${GITHUB_SHA}" \
+            --title "v${VERSION}" \
+            --generate-notes
