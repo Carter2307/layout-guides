@@ -1,6 +1,6 @@
 {
   "name": "layout-guide",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Layout guide overlay: grid, columns and rows guides driven by a floating configuration panel.",
   "license": "MIT",
   "author": "B.ROGER <remirjunior1999@gmail.com>",
