@@ -53,15 +53,19 @@ jobs:
       - run: npm publish
 
       # Sans ce commit, package.json resterait sur l'ancienne version dans le
-      # dépôt alors que npm sert la nouvelle.
+      # dépôt alors que npm sert la nouvelle. On repart de la pointe de main :
+      # le job tourne sur un HEAD détaché au commit tagué, qui n'est pas
+      # forcément la pointe, et un push direct serait rejeté.
       - name: Reporter la version sur main
         run: |
-          if git diff --quiet package.json; then
-            echo "Version déjà à jour, rien à committer."
-            exit 0
-          fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          git commit -m "chore: release ${VERSION}"
-          git push origin HEAD:main
+          git fetch origin main
+          git checkout -B main origin/main
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          if git diff --quiet package.json; then
+            echo "main est déjà en ${VERSION}, rien à committer."
+            exit 0
+          fi
+          git commit -am "chore: release ${VERSION}"
+          git push origin main
