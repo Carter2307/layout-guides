@@ -1,0 +1,67 @@
+name: Release
+
+# Publier une Release GitHub (tag `v0.2.0`) suffit : la version du tag devient
+# celle du paquet, et npm reçoit le build.
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      # `id-token` autorise l'échange OIDC contre un jeton npm éphémère,
+      # `contents` le commit de la version sur main.
+      contents: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing n'existe qu'à partir de npm 11.5.1 ; Node 22 en
+      # embarque une plus ancienne.
+      - run: npm install --global npm@latest
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build
+
+      - name: Aligner package.json sur le tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ]; then
+            echo "Tag de release vide." >&2
+            exit 1
+          fi
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - run: npm publish
+
+      # Sans ce commit, package.json resterait sur l'ancienne version dans le
+      # dépôt alors que npm sert la nouvelle.
+      - name: Reporter la version sur main
+        run: |
+          if git diff --quiet package.json; then
+            echo "Version déjà à jour, rien à committer."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore: release ${VERSION}"
+          git push origin HEAD:main
